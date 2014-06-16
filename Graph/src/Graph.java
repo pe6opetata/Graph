@@ -1,6 +1,9 @@
 import java.io.EOFException;
+import java.util.EmptyStackException;
 import java.util.Random;
 import java.util.Stack;
+
+import sun.applet.Main;
 
 import com.sun.org.apache.bcel.internal.classfile.StackMap;
 import com.sun.org.apache.xerces.internal.impl.dtd.models.DFAContentModel;
@@ -48,13 +51,17 @@ public class Graph {
 	public int t = 1;
 	public boolean q = false;
 
-	public Stack<Neighbor> requestStack() {
+	public synchronized Stack<Neighbor> requestStack() {
 		Stack<Neighbor> requested = new Stack<>();
-		if (!mainStack.empty()) {
+		try {
 			int size = mainStack.size();
-			for (int i = 0; i < size / (t + 1); i++)
-				requested.push(mainStack.pop());
-
+			for (int i = 0; i < size / t; i++)
+				if (!mainStack.empty())
+					requested.push(mainStack.pop());
+			if (!q)
+				System.out.println("Stack has been requested here!");
+		} catch (EmptyStackException e) {
+			return requested;
 		}
 		return requested;
 	}
@@ -72,7 +79,7 @@ public class Graph {
 		}
 
 		Random rnd1 = new Random();
-		int ribs = n + rnd1.nextInt(n);
+		int ribs = 7 * n + rnd1.nextInt(n);
 
 		i = 0;
 		while (i < ribs) {
@@ -87,33 +94,70 @@ public class Graph {
 		}
 	}
 
-	public synchronized void dfs(int v, boolean[] visited) {
+	public void dfs(int v, boolean[] visited, Stack<Neighbor> specify) {
 		synchronized (visited) {
 			visited[v] = true;
 		}
-		System.out.println("visiting " + adjLists[v].name);
+		if (q == false)
+			System.out.println("visiting " + adjLists[v].name);
 		for (Neighbor nbr = adjLists[v].adjList; nbr != null; nbr = nbr.next) {
 			if (!visited[nbr.vertexNum]) {
-				mainStack.add(nbr);
-				System.out.println("\n" + adjLists[v].name + "--"
-						+ adjLists[nbr.vertexNum].name);
-				dfs(nbr.vertexNum, visited);
+				specify.add(nbr);
 			}
+
+		}
+		while (!specify.empty()) {
+			/*
+			 * if (q == false) System.out.println("Main stack has : " +
+			 * mainStack.size());
+			 */
+			try {
+				if (!visited[specify.peek().vertexNum]) {
+					if (q == false)
+						System.out.println("\n" + adjLists[v].name + "--"
+								+ adjLists[specify.peek().vertexNum].name);
+					dfs(specify.pop().vertexNum, visited, specify);
+				} else {
+					specify.pop();
+				}
+			} catch (EmptyStackException e) {
+			}
+
 		}
 	}
 
 	public void dfs() {
-		boolean[] visited = new boolean[adjLists.length];
 
-		for (int v = 0; v < visited.length; v++) {
-			if (!visited[v]) {
-				System.out.println("\nSTARTING AT " + adjLists[v].name);
-				if (adjLists[v].adjList != null)
-					mainStack.add(adjLists[v].adjList);
-				dfs(v, visited);
+		for (int j = 1; j <= t; j++) {
+			covered = false;
+			long startTime = System.currentTimeMillis();
+
+			boolean[] visited = new boolean[adjLists.length];
+			for (int i = 1; i < j; i++) {
+				dfsRunnable d = new dfsRunnable(this, visited);
+				Thread thread = new Thread(d);
+				thread.start();
 			}
+
+			for (int v = 0; v < visited.length; v++) {
+				if (!visited[v]) {
+					if (q == false)
+						System.out.println("\nSTARTING AT " + adjLists[v].name);
+					/*
+					 * if (adjLists[v].adjList != null)
+					 * mainStack.add(adjLists[v].adjList);
+					 */
+					dfs(v, visited, this.mainStack);
+				}
+			}
+			covered = true;
+			long endTime = System.currentTimeMillis();
+			System.out
+					.println("done! the execution with " + j
+							+ "thread lasted: "
+							+ (double) (endTime - startTime) / 1000);
+
 		}
-		covered = true;
 	}
 
 	private int printGraph() {
@@ -134,9 +178,9 @@ public class Graph {
 			NullPointerException, InterruptedException {
 
 		int i = 0;
-		int n = 10240, t = 2;
-		boolean q = false;
-		System.out.println("start!");
+		int n = 10000, t = 8;
+		boolean q = true;
+		// System.out.println("start!");
 		try {
 			while (args.length > i) {
 				System.out.println(args.length);
@@ -159,24 +203,21 @@ public class Graph {
 			Thread threads[] = new Thread[t];
 			Graph g = new Graph(n, t, q);
 			g.printGraph();
-			long startTime = System.currentTimeMillis();
-			boolean[] visited = new boolean[n];
 
-			for (i = 1; i < t; i++) {
-				dfsRunnable d = new dfsRunnable(g, visited, g.mainStack);
-				Thread thread = new Thread(d);
-				thread.start();
-				threads[i] = thread;
-			}
+			// boolean[] visited = new boolean[n];
 
 			/*
-			 * for(i = 0; i < t; i++) { threads[i].join(); }
+			 * for (i = 0; i < t; i++) { dfsRunnable d = new dfsRunnable(g,
+			 * visited, g.mainStack); Thread thread = new Thread(d);
+			 * 
+			 * thread.start(); threads[i] = thread; }
 			 */
-			System.out.println(n);
+
+			/*
+			 * for (i = 0; i < t; i++) { threads[i].join(); }
+			 */
+
 			g.dfs();
-			long endTime = System.currentTimeMillis();
-			System.out.println("done! the execution last : "
-					+ (double) (endTime - startTime) / 1000);
 
 		} catch (ArrayIndexOutOfBoundsException e) {
 			e.printStackTrace();
@@ -186,5 +227,4 @@ public class Graph {
 		}
 
 	}
-
 }
