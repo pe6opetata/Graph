@@ -82,7 +82,7 @@ public class Graph {
 		}
 
 		Random rnd1 = new Random();
-		int ribs = n + rnd1.nextInt(n);
+		int ribs = n * (int) Math.abs(Math.sqrt(n)) + rnd1.nextInt(n);
 
 		i = 0;
 		while (i < ribs) {
@@ -91,8 +91,10 @@ public class Graph {
 			while (v2 == v1)
 				v2 = rnd1.nextInt(n);
 			adjLists[v1].adjList = new Neighbor(v2, adjLists[v1].adjList);
-			if (ribs % 2 == 0)
+			if (ribs % 2 == 0) {
 				adjLists[v2].adjList = new Neighbor(v1, adjLists[v2].adjList);
+				i++;
+			}
 			i++;
 		}
 	}
@@ -111,7 +113,7 @@ public class Graph {
 		}
 		//System.out.println("Mainstack: " + mainStack.size());
 		synchronized (mainStack) {
-			if(mainStack.size() > 30)
+			if(mainStack.size() > 0)
 				mainStack.notifyAll();
 		}
 		while (!specify.empty()) {
@@ -137,8 +139,8 @@ public class Graph {
 	public void dfs() {
 
 		for (int j = 1; j <= t; j++) {
-			covered = false;
-			long startTime = System.currentTimeMillis();
+			covered = true;
+			long startTime = System.nanoTime();
 
 			boolean[] visited = new boolean[adjLists.length];
 			for (int i = 1; i < j; i++) {
@@ -159,8 +161,8 @@ public class Graph {
 				}
 			}
 			covered = true;
-			long endTime = System.currentTimeMillis();
-			System.out.printf("done! the execution with %d threads lasted: %d%n", j , (endTime - startTime));
+			long endTime = System.nanoTime();
+			System.out.printf("done! the execution with %d threads lasted: %.6f%n", j ,(double) (endTime - startTime)/100000000);
 
 		}
 	}
@@ -188,7 +190,6 @@ public class Graph {
 		// System.out.println("start!");
 		try {
 			while (args.length > i) {
-				System.out.println(args.length);
 				if (args[i].equals("-n")) {
 					n = Integer.parseInt(args[++i]);
 					i++;
