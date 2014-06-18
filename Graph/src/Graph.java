@@ -1,4 +1,5 @@
 import java.io.EOFException;
+import java.util.Calendar;
 import java.util.EmptyStackException;
 import java.util.Random;
 import java.util.Stack;
@@ -52,17 +53,19 @@ public class Graph {
 	public boolean q = false;
 
 	public synchronized Stack<Neighbor> requestStack() {
-		Stack<Neighbor> requested = new Stack<>();
-		try {
-			int size = mainStack.size();
-			for (int i = 0; i < size / t; i++)
-				if (!mainStack.empty())
-					requested.push(mainStack.pop());
-			if (!q)
-				System.out.println("Stack has been requested here!");
-		} catch (EmptyStackException e) {
-			return requested;
-		}
+		Stack<Neighbor> requested = new Stack<Neighbor>();
+		int size = mainStack.size();
+			try {			
+				for (int i = 0; i < size / t; i++)
+					if (!mainStack.empty())
+						requested.push(mainStack.pop());
+				if (!q)
+					System.out.println("Stack has been requested here!");
+			} catch (EmptyStackException e) {
+			}
+			
+		
+		
 		return requested;
 	}
 
@@ -79,7 +82,7 @@ public class Graph {
 		}
 
 		Random rnd1 = new Random();
-		int ribs = 7 * n + rnd1.nextInt(n);
+		int ribs = n + rnd1.nextInt(n);
 
 		i = 0;
 		while (i < ribs) {
@@ -98,13 +101,18 @@ public class Graph {
 		synchronized (visited) {
 			visited[v] = true;
 		}
+		
 		if (q == false)
 			System.out.println("visiting " + adjLists[v].name);
 		for (Neighbor nbr = adjLists[v].adjList; nbr != null; nbr = nbr.next) {
 			if (!visited[nbr.vertexNum]) {
 				specify.add(nbr);
 			}
-
+		}
+		//System.out.println("Mainstack: " + mainStack.size());
+		synchronized (mainStack) {
+			if(mainStack.size() > 30)
+				mainStack.notifyAll();
 		}
 		while (!specify.empty()) {
 			/*
@@ -152,10 +160,7 @@ public class Graph {
 			}
 			covered = true;
 			long endTime = System.currentTimeMillis();
-			System.out
-					.println("done! the execution with " + j
-							+ "thread lasted: "
-							+ (double) (endTime - startTime) / 1000);
+			System.out.printf("done! the execution with %d threads lasted: %d%n", j , (endTime - startTime));
 
 		}
 	}
@@ -202,7 +207,7 @@ public class Graph {
 
 			Thread threads[] = new Thread[t];
 			Graph g = new Graph(n, t, q);
-			g.printGraph();
+			//g.printGraph();
 
 			// boolean[] visited = new boolean[n];
 
