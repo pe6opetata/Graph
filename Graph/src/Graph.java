@@ -1,13 +1,9 @@
-import java.io.EOFException;
-import java.util.Calendar;
+import java.util.ArrayList;
+
 import java.util.EmptyStackException;
+
 import java.util.Random;
 import java.util.Stack;
-
-import sun.applet.Main;
-
-import com.sun.org.apache.bcel.internal.classfile.StackMap;
-import com.sun.org.apache.xerces.internal.impl.dtd.models.DFAContentModel;
 
 class Neighbor {
 	public int vertexNum;
@@ -36,9 +32,9 @@ class Vertex {
 			do {
 				if (iterator.vertexNum == v)
 					result = true;
+				iterator = iterator.next;
 			} while (iterator != null);
 		} catch (NullPointerException e) {
-			// TODO: handle exception
 		}
 		return result;
 	}
@@ -54,18 +50,14 @@ public class Graph {
 
 	public synchronized Stack<Neighbor> requestStack() {
 		Stack<Neighbor> requested = new Stack<Neighbor>();
-		int size = mainStack.size();
-			try {			
-				for (int i = 0; i < size / t; i++)
-					if (!mainStack.empty())
-						requested.push(mainStack.pop());
-				if (!q)
-					System.out.println("Stack has been requested here!");
-			} catch (EmptyStackException e) {
-			}
-			
-		
-		
+		try {
+			if (!mainStack.empty())
+				requested.push(mainStack.pop());
+			// if (!q)
+			// System.out.println("Stack has been requested here!");
+		} catch (EmptyStackException e) {
+		}
+
 		return requested;
 	}
 
@@ -81,14 +73,27 @@ public class Graph {
 			adjLists[i] = new Vertex(i, null);
 		}
 
+		ArrayList<Integer> connected = new ArrayList<>();
+		connected.add(0);
 		Random rnd1 = new Random();
+		for (i = 0; i < n - 1; i++) {
+			v1 = connected.get(rnd1.nextInt(connected.size()));
+			v2 = rnd1.nextInt(n);
+			while (connected.contains(v2))
+				v2 = rnd1.nextInt(n);
+			adjLists[v1].adjList = new Neighbor(v2, adjLists[v1].adjList);
+			connected.add(v2);
+
+		}
+
 		int ribs = n * (int) Math.abs(Math.sqrt(n)) + rnd1.nextInt(n);
 
 		i = 0;
 		while (i < ribs) {
+
 			v1 = rnd1.nextInt(n);
 			v2 = rnd1.nextInt(n);
-			while (v2 == v1)
+			while (v2 == v1 || adjLists[v1].contains(v2))
 				v2 = rnd1.nextInt(n);
 			adjLists[v1].adjList = new Neighbor(v2, adjLists[v1].adjList);
 			if (ribs % 2 == 0) {
@@ -100,20 +105,27 @@ public class Graph {
 	}
 
 	public void dfs(int v, boolean[] visited, Stack<Neighbor> specify) {
+
 		synchronized (visited) {
-			visited[v] = true;
+			if (visited[v] == false) {
+				if (q == false)
+					System.out.println(" visiting " + adjLists[v].name);
+				visited[v] = true;
+			} else
+				return;
+
 		}
-		
-		if (q == false)
-			System.out.println("visiting " + adjLists[v].name);
+
 		for (Neighbor nbr = adjLists[v].adjList; nbr != null; nbr = nbr.next) {
 			if (!visited[nbr.vertexNum]) {
+				// System.out.println(Thread.currentThread().getName() +
+				// " adding " + nbr.vertexNum);
 				specify.add(nbr);
 			}
 		}
 		//System.out.println("Mainstack: " + mainStack.size());
 		synchronized (mainStack) {
-			if(mainStack.size() > 0)
+			if (mainStack.size() > 0)
 				mainStack.notifyAll();
 		}
 		while (!specify.empty()) {
@@ -134,12 +146,13 @@ public class Graph {
 			}
 
 		}
+
 	}
 
 	public void dfs() {
 
 		for (int j = 1; j <= t; j++) {
-			covered = true;
+			covered = false;
 			long startTime = System.nanoTime();
 
 			boolean[] visited = new boolean[adjLists.length];
@@ -160,9 +173,16 @@ public class Graph {
 					dfs(v, visited, this.mainStack);
 				}
 			}
+
 			covered = true;
+			synchronized (mainStack) {
+				mainStack.notifyAll();
+			}
 			long endTime = System.nanoTime();
-			System.out.printf("done! the execution with %d threads lasted: %.6f%n", j ,(double) (endTime - startTime)/100000000);
+			// System.out.printf("done! the execution with %d threads lasted: %.6f%n",
+			// j ,(double) (endTime - startTime)/100000000);
+			System.out.printf("%.6f%n",
+					(double) (endTime - startTime) / 100000000);
 
 		}
 	}
@@ -206,9 +226,8 @@ public class Graph {
 
 			}
 
-			Thread threads[] = new Thread[t];
 			Graph g = new Graph(n, t, q);
-			//g.printGraph();
+			// g.printGraph();
 
 			// boolean[] visited = new boolean[n];
 
